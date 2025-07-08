@@ -64,6 +64,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import Header from './Header';
 import FinancialChart from './FinancialChart';
+import CategoryPieChart from './CategoryPieChart';
 
 const transactionSchema = z.object({
   type: z.enum(['revenue', 'expense']),
@@ -476,6 +477,15 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <FinancialChart transactions={transactions} currency={currency} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Expense Breakdown</CardTitle>
+              <CardDescription>Category-wise expense distribution.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CategoryPieChart transactions={transactions} currency={currency} />
             </CardContent>
           </Card>
           <Card>
