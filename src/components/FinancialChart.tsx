@@ -15,9 +15,12 @@ import { format, subDays, eachDayOfInterval } from 'date-fns';
 
 interface FinancialChartProps {
   transactions: Transaction[];
+  currency: 'USD' | 'INR';
 }
 
-export default function FinancialChart({ transactions }: FinancialChartProps) {
+export default function FinancialChart({ transactions, currency }: FinancialChartProps) {
+  const currencySymbol = currency === 'USD' ? '$' : '₹';
+  
   const data = eachDayOfInterval({
     start: subDays(new Date(), 29),
     end: new Date(),
@@ -43,8 +46,9 @@ export default function FinancialChart({ transactions }: FinancialChartProps) {
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="date" tickLine={false} axisLine={false} fontSize={12} />
-        <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(value) => `$${value}`} />
+        <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(value) => `${currencySymbol}${value}`} />
         <Tooltip
+          formatter={(value: number) => `${currencySymbol}${value.toLocaleString()}`}
           contentStyle={{
             backgroundColor: 'hsl(var(--background))',
             border: '1px solid hsl(var(--border))',

@@ -71,19 +71,15 @@ const eventSchema = z.object({
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    { id: '1', type: 'revenue', date: new Date(2024, 6, 15), amount: 1200, description: 'Web Design Project', category: 'Client Work' },
-    { id: '2', type: 'expense', date: new Date(2024, 6, 16), amount: 75, description: 'Software Subscription', category: 'Software' },
-    { id: '3', type: 'expense', date: new Date(), amount: 120, description: 'Office Supplies', category: 'Supplies' },
-  ]);
-  const [events, setEvents] = useState<CalendarEvent[]>([
-    { id: '1', date: new Date(2024, 6, 25), title: 'Client Meeting', description: 'Discuss project milestones.' },
-    { id: '2', date: new Date(), title: 'Team Sync', description: 'Weekly team update.' },
-  ]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestedCategories, setSuggestedCategories] = useState<string[]>([]);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
+  const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
+
+  const currencySymbol = currency === 'USD' ? '$' : '₹';
 
   const transactionForm = useForm<z.infer<typeof transactionSchema>>({
     resolver: zodResolver(transactionSchema),
@@ -205,7 +201,7 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <Header />
+      <Header currency={currency} setCurrency={setCurrency} />
       <div className="grid gap-6 mb-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -213,7 +209,7 @@ export default function Dashboard() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialSummary.revenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{currencySymbol}{financialSummary.revenue.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card>
@@ -222,7 +218,7 @@ export default function Dashboard() {
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialSummary.expenses.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{currencySymbol}{financialSummary.expenses.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card>
@@ -232,7 +228,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${financialSummary.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${financialSummary.profit.toLocaleString()}
+              {currencySymbol}{financialSummary.profit.toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -401,7 +397,7 @@ export default function Dashboard() {
                         <TableCell>{t.category}</TableCell>
                         <TableCell>{format(t.date, 'dd MMM, yyyy')}</TableCell>
                         <TableCell className={`text-right ${t.type === 'revenue' ? 'text-green-600' : 'text-red-600'}`}>
-                          {t.type === 'revenue' ? '+' : '-'}${t.amount.toFixed(2)}
+                          {t.type === 'revenue' ? '+' : '-'}{currencySymbol}{t.amount.toFixed(2)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -417,7 +413,7 @@ export default function Dashboard() {
               <CardTitle>Financial Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              <FinancialChart transactions={transactions} />
+              <FinancialChart transactions={transactions} currency={currency} />
             </CardContent>
           </Card>
           <Card>
