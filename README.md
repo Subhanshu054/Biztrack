@@ -1,4 +1,4 @@
-# Firebase Studio
+# BizTrack: Simple ERP
 
 This is a NextJS starter in Firebase Studio.
 
