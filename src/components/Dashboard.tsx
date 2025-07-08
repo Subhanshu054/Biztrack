@@ -283,8 +283,8 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+        <div className="xl:col-span-3 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Add Transaction</CardTitle>
@@ -416,9 +416,61 @@ export default function Dashboard() {
               </Form>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Recent Transactions</CardTitle>
+                <CardDescription>View your recent transactions.</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleExportTransactions}>
+                <Download className="mr-2 h-4 w-4" />
+                Export Year
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[300px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+                        </TableCell>
+                      </TableRow>
+                    ) : transactions.length > 0 ? (
+                      transactions.map(t => (
+                        <TableRow key={t.id}>
+                          <TableCell className="font-medium">{t.description}</TableCell>
+                          <TableCell>{t.category}</TableCell>
+                          <TableCell>{format(t.date, 'dd MMM, yyyy')}</TableCell>
+                          <TableCell className={`text-right ${t.type === 'revenue' ? 'text-green-600' : 'text-red-600'}`}>
+                            {t.type === 'revenue' ? '+' : '-'}{currencySymbol}{t.amount.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                        <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                          No transactions found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
         </div>
         
-        <div className="space-y-6 lg:col-span-1">
+        <div className="xl:col-span-2 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Financial Overview</CardTitle>
@@ -436,9 +488,6 @@ export default function Dashboard() {
               <CategoryPieChart transactions={transactions} currency={currency} />
             </CardContent>
           </Card>
-        </div>
-        
-        <div className="md:col-span-2 lg:col-span-1">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -550,61 +599,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-      </div>
-      
-      <div className="mt-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Recent Transactions</CardTitle>
-              <CardDescription>View your recent transactions.</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleExportTransactions}>
-              <Download className="mr-2 h-4 w-4" />
-              Export Year
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[300px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
-                        <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-                      </TableCell>
-                    </TableRow>
-                  ) : transactions.length > 0 ? (
-                    transactions.map(t => (
-                      <TableRow key={t.id}>
-                        <TableCell className="font-medium">{t.description}</TableCell>
-                        <TableCell>{t.category}</TableCell>
-                        <TableCell>{format(t.date, 'dd MMM, yyyy')}</TableCell>
-                        <TableCell className={`text-right ${t.type === 'revenue' ? 'text-green-600' : 'text-red-600'}`}>
-                          {t.type === 'revenue' ? '+' : '-'}{currencySymbol}{t.amount.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                      <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
-                        No transactions found.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
       </div>
     </main>
   );
