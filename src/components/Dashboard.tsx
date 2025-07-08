@@ -15,15 +15,16 @@ import {
   Sparkles,
   Loader2,
   Download,
+  Link as LinkIcon,
 } from 'lucide-react';
-import type { Transaction, CalendarEvent } from '@/lib/types';
+import type { Transaction, Reminder } from '@/lib/types';
 import { suggestFinancialCategories } from '@/ai/flows/suggest-financial-categories';
 import { useToast } from '@/hooks/use-toast';
 import {
   getTransactions,
   addTransaction,
-  getEvents,
-  addEvent,
+  getReminders,
+  addReminder,
   getFinancialYearTransactions,
 } from '@/app/actions';
 
@@ -38,6 +39,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -58,6 +60,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import Header from './Header';
 import FinancialChart from './FinancialChart';
@@ -70,21 +73,22 @@ const transactionSchema = z.object({
   category: z.string().min(1, 'Category is required'),
 });
 
-const eventSchema = z.object({
+const reminderSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   date: z.date(),
   description: z.string().optional(),
+  addToGoogleCalendar: z.boolean().default(false).optional(),
 });
 
 export default function Dashboard() {
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestedCategories, setSuggestedCategories] = useState<string[]>([]);
-  const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
+  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
   const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
 
   const currencySymbol = currency === 'USD' ? '$' : '₹';
@@ -100,19 +104,19 @@ export default function Dashboard() {
     },
   });
 
-  const eventForm = useForm<z.infer<typeof eventSchema>>({
-    resolver: zodResolver(eventSchema),
-    defaultValues: { title: '', date: selectedDate, description: '' }
+  const reminderForm = useForm<z.infer<typeof reminderSchema>>({
+    resolver: zodResolver(reminderSchema),
+    defaultValues: { title: '', date: selectedDate, description: '', addToGoogleCalendar: false }
   });
 
   const refreshData = async () => {
     try {
-      const [transactionsData, eventsData] = await Promise.all([
+      const [transactionsData, remindersData] = await Promise.all([
         getTransactions(),
-        getEvents(),
+        getReminders(),
       ]);
       setTransactions(transactionsData.map(t => ({...t, date: new Date(t.date)})));
-      setEvents(eventsData.map(e => ({...e, date: new Date(e.date)})));
+      setReminders(remindersData.map(e => ({...e, date: new Date(e.date)})));
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load data from the server.' });
     } finally {
@@ -134,9 +138,9 @@ export default function Dashboard() {
     return { revenue, expenses, profit: revenue - expenses };
   }, [transactions]);
   
-  const selectedDayEvents = useMemo(() => {
-    return events.filter(e => format(e.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
-  }, [events, selectedDate]);
+  const selectedDayReminders = useMemo(() => {
+    return reminders.filter(e => format(e.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
+  }, [reminders, selectedDate]);
 
   async function onTransactionSubmit(values: z.infer<typeof transactionSchema>) {
     try {
@@ -174,15 +178,21 @@ export default function Dashboard() {
     }
   }
 
-  async function onEventSubmit(values: z.infer<typeof eventSchema>) {
+  async function onReminderSubmit(values: z.infer<typeof reminderSchema>) {
     try {
-      await addEvent(values);
-      eventForm.reset({ title: '', date: selectedDate, description: '' });
-      setIsEventDialogOpen(false);
-      toast({ title: "Success", description: "Event added to calendar." });
+      await addReminder(values);
+      reminderForm.reset({ title: '', date: selectedDate, description: '', addToGoogleCalendar: false });
+      setIsReminderDialogOpen(false);
+      toast({ title: "Success", description: "Reminder added to calendar." });
+      if (values.addToGoogleCalendar) {
+        toast({
+          title: "Note",
+          description: "Connecting to Google Calendar is a demo feature and not fully implemented.",
+        });
+      }
       await refreshData();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add event.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add reminder.' });
     }
   }
   
@@ -228,6 +238,13 @@ export default function Dashboard() {
     } catch (error) {
        toast({ variant: 'destructive', title: 'Export Error', description: 'Could not export transactions.' });
     }
+  }
+  
+  function handleConnectGoogle() {
+    toast({
+      title: "Coming Soon!",
+      description: "Google Calendar integration requires setup and is not yet implemented.",
+    });
   }
 
   return (
@@ -464,60 +481,86 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Calendar</CardTitle>
-                <CardDescription>Manage your appointments and events.</CardDescription>
+                <CardTitle>Calendar & Reminders</CardTitle>
+                <CardDescription>Manage your reminders and appointments.</CardDescription>
               </div>
-              <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Event
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create a New Event</DialogTitle>
-                  </DialogHeader>
-                  <Form {...eventForm}>
-                    <form onSubmit={eventForm.handleSubmit(onEventSubmit)} className="space-y-4">
-                      <FormField control={eventForm.control} name="title" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Title</FormLabel>
-                          <FormControl><Input placeholder="e.g., Project Kick-off" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={eventForm.control} name="date" render={({ field }) => (
-                         <FormItem className="flex flex-col">
-                          <FormLabel>Date</FormLabel>
-                           <Popover>
-                             <PopoverTrigger asChild>
-                               <FormControl>
-                                 <Button variant={"outline"} className={cn("pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>
-                                   {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                   <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                 </Button>
-                               </FormControl>
-                             </PopoverTrigger>
-                             <PopoverContent className="w-auto p-0" align="start">
-                               <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/>
-                             </PopoverContent>
-                           </Popover>
-                           <FormMessage />
-                         </FormItem>
-                      )} />
-                      <FormField control={eventForm.control} name="description" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description</FormLabel>
-                          <FormControl><Input placeholder="Optional details..." {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <Button type="submit">Create Event</Button>
-                    </form>
-                  </Form>
-                </DialogContent>
-              </Dialog>
+              <div className="flex items-center gap-2">
+                 <Button variant="outline" size="sm" onClick={handleConnectGoogle}>
+                    <LinkIcon className="h-4 w-4 mr-2" />
+                    Connect
+                </Button>
+                <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      New Reminder
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create a New Reminder</DialogTitle>
+                    </DialogHeader>
+                    <Form {...reminderForm}>
+                      <form onSubmit={reminderForm.handleSubmit(onReminderSubmit)} className="space-y-4">
+                        <FormField control={reminderForm.control} name="title" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Title</FormLabel>
+                            <FormControl><Input placeholder="e.g., Project Kick-off" {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={reminderForm.control} name="date" render={({ field }) => (
+                           <FormItem className="flex flex-col">
+                            <FormLabel>Date</FormLabel>
+                             <Popover>
+                               <PopoverTrigger asChild>
+                                 <FormControl>
+                                   <Button variant={"outline"} className={cn("pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>
+                                     {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                   </Button>
+                                 </FormControl>
+                               </PopoverTrigger>
+                               <PopoverContent className="w-auto p-0" align="start">
+                                 <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus/>
+                               </PopoverContent>
+                             </Popover>
+                             <FormMessage />
+                           </FormItem>
+                        )} />
+                        <FormField control={reminderForm.control} name="description" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <FormControl><Input placeholder="Optional details..." {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField
+                          control={reminderForm.control}
+                          name="addToGoogleCalendar"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                              <div className="space-y-0.5">
+                                <FormLabel>Add to Google Calendar</FormLabel>
+                                <FormDescription>
+                                  Sync this reminder with your Google Calendar.
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <Button type="submit">Create Reminder</Button>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent className="flex flex-col lg:flex-row gap-6">
               <Calendar
@@ -527,19 +570,19 @@ export default function Dashboard() {
                 className="rounded-md border"
               />
               <div className="flex-1">
-                <h3 className="text-lg font-semibold mb-2">Events for {format(selectedDate, 'PPP')}</h3>
+                <h3 className="text-lg font-semibold mb-2">Reminders for {format(selectedDate, 'PPP')}</h3>
                  <ScrollArea className="h-48">
-                  {selectedDayEvents.length > 0 ? (
+                  {selectedDayReminders.length > 0 ? (
                     <ul className="space-y-2">
-                      {selectedDayEvents.map(event => (
-                        <li key={event.id} className="p-2 rounded-md border bg-secondary/50">
-                          <p className="font-semibold text-sm">{event.title}</p>
-                          <p className="text-xs text-muted-foreground">{event.description}</p>
+                      {selectedDayReminders.map(reminder => (
+                        <li key={reminder.id} className="p-2 rounded-md border bg-secondary/50">
+                          <p className="font-semibold text-sm">{reminder.title}</p>
+                          <p className="text-xs text-muted-foreground">{reminder.description}</p>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground pt-2">No events for this day.</p>
+                    <p className="text-sm text-muted-foreground pt-2">No reminders for this day.</p>
                   )}
                  </ScrollArea>
               </div>

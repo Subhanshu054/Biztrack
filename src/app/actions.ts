@@ -1,8 +1,8 @@
 
 'use server';
 
-import { addTransaction as dbAddTransaction, getTransactions as dbGetTransactions, addEvent as dbAddEvent, getEvents as dbGetEvents } from '@/lib/db';
-import type { Transaction, CalendarEvent } from '@/lib/types';
+import { addTransaction as dbAddTransaction, getTransactions as dbGetTransactions, addReminder as dbAddReminder, getReminders as dbGetReminders } from '@/lib/db';
+import type { Transaction, Reminder } from '@/lib/types';
 import { subDays } from 'date-fns';
 
 export async function getTransactions(): Promise<Transaction[]> {
@@ -13,13 +13,13 @@ export async function addTransaction(transaction: Omit<Transaction, 'id'>): Prom
     return dbAddTransaction(transaction);
 }
 
-export async function getEvents(): Promise<CalendarEvent[]> {
-    return dbGetEvents();
+export async function getReminders(): Promise<Reminder[]> {
+    return dbGetReminders();
 }
 
-export async function addEvent(event: Omit<CalendarEvent, 'id' | 'description'> & { description?: string }): Promise<CalendarEvent> {
-    const eventData = { ...event, description: event.description || '' };
-    return dbAddEvent(eventData);
+export async function addReminder(reminder: Omit<Reminder, 'id' | 'description'> & { description?: string }): Promise<Reminder> {
+    const reminderData = { ...reminder, description: reminder.description || '' };
+    return dbAddReminder(reminderData);
 }
 
 export async function getFinancialYearTransactions(): Promise<Transaction[]> {

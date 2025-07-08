@@ -1,7 +1,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Transaction, CalendarEvent } from './types';
+import type { Transaction, Reminder } from './types';
 
 // NOTE: in a real-world scenario, you would want to use a proper database.
 // For this prototype, we'll use a JSON file as a simple "database".
@@ -9,7 +9,7 @@ const dbPath = path.join(process.cwd(), 'data', 'db.json');
 
 type DbData = {
   transactions: Transaction[];
-  events: CalendarEvent[];
+  reminders: Reminder[];
 };
 
 async function readDb(): Promise<DbData> {
@@ -21,20 +21,20 @@ async function readDb(): Promise<DbData> {
     if (parsedData.transactions) {
       parsedData.transactions.forEach((t: any) => t.date = new Date(t.date));
     }
-    if (parsedData.events) {
-      parsedData.events.forEach((e: any) => e.date = new Date(e.date));
+    if (parsedData.reminders) {
+      parsedData.reminders.forEach((r: any) => r.date = new Date(r.date));
     }
     
     return parsedData;
   } catch (error) {
     // If the file doesn't exist or is empty, return a default structure
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      await writeDb({ transactions: [], events: [] });
-      return { transactions: [], events: [] };
+      await writeDb({ transactions: [], reminders: [] });
+      return { transactions: [], reminders: [] };
     }
     console.error("Failed to read or parse db.json", error);
     // Return empty structure on other errors to prevent app crash
-    return { transactions: [], events: [] };
+    return { transactions: [], reminders: [] };
   }
 }
 
@@ -68,22 +68,22 @@ export async function addTransaction(transaction: Omit<Transaction, 'id'>): Prom
   return newTransaction;
 }
 
-export async function getEvents(): Promise<CalendarEvent[]> {
+export async function getReminders(): Promise<Reminder[]> {
   const db = await readDb();
-  return db.events || [];
+  return db.reminders || [];
 }
 
-export async function addEvent(event: Omit<CalendarEvent, 'id'>): Promise<CalendarEvent> {
+export async function addReminder(reminder: Omit<Reminder, 'id'>): Promise<Reminder> {
   const db = await readDb();
-  const newEvent: CalendarEvent = {
-    ...event,
-    description: event.description || '',
+  const newReminder: Reminder = {
+    ...reminder,
+    description: reminder.description || '',
     id: Date.now().toString(),
   };
-  if (!db.events) {
-    db.events = [];
+  if (!db.reminders) {
+    db.reminders = [];
   }
-  db.events.push(newEvent);
+  db.reminders.push(newReminder);
   await writeDb(db);
-  return newEvent;
+  return newReminder;
 }

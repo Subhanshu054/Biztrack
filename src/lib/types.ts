@@ -7,7 +7,7 @@ export type Transaction = {
   category: string;
 };
 
-export type CalendarEvent = {
+export type Reminder = {
   id: string;
   date: Date;
   title: string;
