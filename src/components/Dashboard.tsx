@@ -283,9 +283,8 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        <div className="xl:col-span-3 space-y-6">
-          <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <Card>
             <CardHeader>
               <CardTitle>Add Transaction</CardTitle>
               <CardDescription>Log a new revenue or expense entry.</CardDescription>
@@ -415,8 +414,28 @@ export default function Dashboard() {
                 </form>
               </Form>
             </CardContent>
-          </Card>
-          <Card>
+        </Card>
+        <Card>
+            <CardHeader>
+              <CardTitle>Financial Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FinancialChart transactions={transactions} currency={currency} />
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader>
+              <CardTitle>Expense Breakdown</CardTitle>
+              <CardDescription>Category-wise expense distribution.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CategoryPieChart transactions={transactions} currency={currency} />
+            </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+        <Card className="xl:col-span-3">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Recent Transactions</CardTitle>
@@ -467,28 +486,8 @@ export default function Dashboard() {
                 </Table>
               </ScrollArea>
             </CardContent>
-          </Card>
-        </div>
-        
-        <div className="xl:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Financial Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FinancialChart transactions={transactions} currency={currency} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Expense Breakdown</CardTitle>
-              <CardDescription>Category-wise expense distribution.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CategoryPieChart transactions={transactions} currency={currency} />
-            </CardContent>
-          </Card>
-          <Card>
+        </Card>
+        <Card className="xl:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Calendar & Reminders</CardTitle>
@@ -597,8 +596,7 @@ export default function Dashboard() {
                  </ScrollArea>
               </div>
             </CardContent>
-          </Card>
-        </div>
+        </Card>
       </div>
     </main>
   );
