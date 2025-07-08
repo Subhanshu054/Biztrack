@@ -89,7 +89,7 @@ export default function Dashboard() {
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestedCategories, setSuggestedCategories] = useState<string[]>([]);
   const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
-  const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'INR'>('INR');
 
   const currencySymbol = currency === 'USD' ? '$' : '₹';
 
