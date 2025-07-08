@@ -13,6 +13,7 @@ import {
   Plus,
   Sparkles,
   Loader2,
+  Download,
 } from 'lucide-react';
 import type { Transaction, CalendarEvent } from '@/lib/types';
 import { suggestFinancialCategories } from '@/ai/flows/suggest-financial-categories';
@@ -155,6 +156,53 @@ export default function Dashboard() {
     toast({ title: "Success", description: "Event added to calendar." });
   }
   
+  function handleExportTransactions() {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthlyTransactions = transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
+    });
+
+    if (monthlyTransactions.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No Transactions',
+        description: 'There are no transactions for the current month to export.',
+      });
+      return;
+    }
+
+    const headers = ['ID', 'Type', 'Date', 'Amount', 'Description', 'Category'];
+    const csvRows = [
+      headers.join(','),
+      ...monthlyTransactions.map(t =>
+        [
+          t.id,
+          t.type,
+          format(t.date, 'yyyy-MM-dd'),
+          t.amount,
+          `"${t.description.replace(/"/g, '""')}"`,
+          `"${t.category.replace(/"/g, '""')}"`,
+        ].join(',')
+      ),
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `transactions-${currentYear}-${String(currentMonth + 1).padStart(2, '0')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast({ title: 'Success', description: 'Transactions for the current month exported.' });
+  }
+
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
       <Header />
@@ -325,8 +373,15 @@ export default function Dashboard() {
           </Card>
           
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Transactions</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Recent Transactions</CardTitle>
+                <CardDescription>View and export your recent transactions.</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleExportTransactions}>
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[300px]">
