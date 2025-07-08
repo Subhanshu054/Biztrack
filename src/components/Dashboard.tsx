@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,6 +19,13 @@ import {
 import type { Transaction, CalendarEvent } from '@/lib/types';
 import { suggestFinancialCategories } from '@/ai/flows/suggest-financial-categories';
 import { useToast } from '@/hooks/use-toast';
+import {
+  getTransactions,
+  addTransaction,
+  getEvents,
+  addEvent,
+  getFinancialYearTransactions,
+} from '@/app/actions';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -26,7 +34,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card';
 import {
   Form,
@@ -73,6 +80,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestedCategories, setSuggestedCategories] = useState<string[]>([]);
@@ -97,6 +105,25 @@ export default function Dashboard() {
     defaultValues: { title: '', date: selectedDate, description: '' }
   });
 
+  const refreshData = async () => {
+    try {
+      const [transactionsData, eventsData] = await Promise.all([
+        getTransactions(),
+        getEvents(),
+      ]);
+      setTransactions(transactionsData.map(t => ({...t, date: new Date(t.date)})));
+      setEvents(eventsData.map(e => ({...e, date: new Date(e.date)})));
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load data from the server.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshData();
+  }, []);
+
   const financialSummary = useMemo(() => {
     const revenue = transactions
       .filter(t => t.type === 'revenue')
@@ -112,14 +139,21 @@ export default function Dashboard() {
   }, [events, selectedDate]);
 
   async function onTransactionSubmit(values: z.infer<typeof transactionSchema>) {
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      ...values,
-    };
-    setTransactions(prev => [newTransaction, ...prev]);
-    transactionForm.reset();
-    setSuggestedCategories([]);
-    toast({ title: "Success", description: "Transaction added." });
+    try {
+      await addTransaction(values);
+      transactionForm.reset({
+        type: 'expense',
+        date: new Date(),
+        amount: 0,
+        description: '',
+        category: '',
+      });
+      setSuggestedCategories([]);
+      toast({ title: "Success", description: "Transaction added." });
+      await refreshData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add transaction.' });
+    }
   }
 
   async function handleSuggestCategories() {
@@ -140,63 +174,60 @@ export default function Dashboard() {
     }
   }
 
-  function onEventSubmit(values: z.infer<typeof eventSchema>) {
-    const newEvent: CalendarEvent = {
-      id: Date.now().toString(),
-      ...values,
-      description: values.description || '',
-    };
-    setEvents(prev => [...prev, newEvent]);
-    eventForm.reset({ title: '', date: selectedDate, description: '' });
-    setIsEventDialogOpen(false);
-    toast({ title: "Success", description: "Event added to calendar." });
+  async function onEventSubmit(values: z.infer<typeof eventSchema>) {
+    try {
+      await addEvent(values);
+      eventForm.reset({ title: '', date: selectedDate, description: '' });
+      setIsEventDialogOpen(false);
+      toast({ title: "Success", description: "Event added to calendar." });
+      await refreshData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add event.' });
+    }
   }
   
-  function handleExportTransactions() {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+  async function handleExportTransactions() {
+    try {
+      const yearlyTransactions = await getFinancialYearTransactions();
 
-    const monthlyTransactions = transactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
-    });
+      if (yearlyTransactions.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'No Transactions',
+          description: 'There are no transactions in the last year to export.',
+        });
+        return;
+      }
 
-    if (monthlyTransactions.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No Transactions',
-        description: 'There are no transactions for the current month to export.',
-      });
-      return;
+      const headers = ['ID', 'Type', 'Date', 'Amount', 'Description', 'Category'];
+      const csvRows = [
+        headers.join(','),
+        ...yearlyTransactions.map(t =>
+          [
+            t.id,
+            t.type,
+            format(new Date(t.date), 'yyyy-MM-dd'),
+            t.amount,
+            `"${t.description.replace(/"/g, '""')}"`,
+            `"${t.category.replace(/"/g, '""')}"`,
+          ].join(',')
+        ),
+      ];
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `financial-year-report-${new Date().getFullYear()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: 'Success', description: 'Financial year report exported.' });
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Export Error', description: 'Could not export transactions.' });
     }
-
-    const headers = ['ID', 'Type', 'Date', 'Amount', 'Description', 'Category'];
-    const csvRows = [
-      headers.join(','),
-      ...monthlyTransactions.map(t =>
-        [
-          t.id,
-          t.type,
-          format(t.date, 'yyyy-MM-dd'),
-          t.amount,
-          `"${t.description.replace(/"/g, '""')}"`,
-          `"${t.category.replace(/"/g, '""')}"`,
-        ].join(',')
-      ),
-    ];
-
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `transactions-${currentYear}-${String(currentMonth + 1).padStart(2, '0')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast({ title: 'Success', description: 'Transactions for the current month exported.' });
   }
 
   return (
@@ -372,11 +403,11 @@ export default function Dashboard() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Recent Transactions</CardTitle>
-                <CardDescription>View and export your recent transactions.</CardDescription>
+                <CardDescription>View your recent transactions.</CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={handleExportTransactions}>
                 <Download className="mr-2 h-4 w-4" />
-                Export
+                Export Year
               </Button>
             </CardHeader>
             <CardContent>
@@ -391,16 +422,30 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.map(t => (
-                      <TableRow key={t.id}>
-                        <TableCell className="font-medium">{t.description}</TableCell>
-                        <TableCell>{t.category}</TableCell>
-                        <TableCell>{format(t.date, 'dd MMM, yyyy')}</TableCell>
-                        <TableCell className={`text-right ${t.type === 'revenue' ? 'text-green-600' : 'text-red-600'}`}>
-                          {t.type === 'revenue' ? '+' : '-'}{currencySymbol}{t.amount.toFixed(2)}
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : transactions.length > 0 ? (
+                      transactions.map(t => (
+                        <TableRow key={t.id}>
+                          <TableCell className="font-medium">{t.description}</TableCell>
+                          <TableCell>{t.category}</TableCell>
+                          <TableCell>{format(t.date, 'dd MMM, yyyy')}</TableCell>
+                          <TableCell className={`text-right ${t.type === 'revenue' ? 'text-green-600' : 'text-red-600'}`}>
+                            {t.type === 'revenue' ? '+' : '-'}{currencySymbol}{t.amount.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                       <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                          No transactions found.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </ScrollArea>
